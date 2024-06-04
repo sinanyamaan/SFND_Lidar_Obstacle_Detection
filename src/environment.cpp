@@ -49,10 +49,13 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     const auto &lidar = std::make_unique<Lidar>( cars, 0.0 );
     const auto& cloud = lidar->scan();
     // renderRays( viewer, lidar->position, cloud );
-    renderPointCloud( viewer, cloud, "scan" );
+    // renderPointCloud( viewer, cloud, "scan" );
 
     // TODO:: Create point processor
-
+    ProcessPointClouds<pcl::PointXYZ> processor;
+    const auto& [ground_cloud, non_ground_cloud] = processor.SegmentPlane(cloud, 10, 0.5);
+    renderPointCloud( viewer, ground_cloud, "ground", Color(0.0f, 1.0f, 0.0f) );
+    renderPointCloud( viewer, non_ground_cloud, "non_ground", Color(1.0f, 0.0f, 0.0f) );
 }
 
 
