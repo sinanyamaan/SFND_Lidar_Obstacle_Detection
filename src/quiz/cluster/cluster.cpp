@@ -25,7 +25,7 @@ pcl::visualization::PCLVisualizer::Ptr initScene(const Box& window, const int& z
 pcl::PointCloud<pcl::PointXYZ>::Ptr CreateData(const std::vector<std::vector<float>>& points)
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
-  	
+
   	for(const auto& pt : points)
   	{
   		pcl::PointXYZ point;
@@ -73,13 +73,42 @@ void render2DTree(const std::unique_ptr<Node> &node, pcl::visualization::PCLVisu
 
 }
 
+void euclideanCluster(const int &index, const std::vector<std::vector<float>> &points, std::vector<int> &cluster, std::vector<bool> &processed, const std::unique_ptr<KdTree>& tree, const float &distanceTol)
+{
+	processed[index] = true;
+	cluster.push_back(index);
+
+	const auto nearest = tree->search(points[index], distanceTol);
+
+	for(const auto &i : nearest)
+	{
+		if(!processed[i])
+			euclideanCluster(i, points, cluster, processed, tree, distanceTol);
+	}
+}
+
 std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, const std::unique_ptr<KdTree>& tree, float distanceTol)
 {
 
 	// TODO: Fill out this function to return list of indices for each cluster
 
 	std::vector<std::vector<int>> clusters;
- 
+	std::vector processed(points.size(), false);
+
+	int i = 0;
+	while(i < points.size())
+	{
+		if(processed[i])
+		{
+			i++;
+			continue;
+		}
+		std::vector<int> cluster;
+		euclideanCluster(i, points, cluster, processed, tree, distanceTol);
+		clusters.push_back(cluster);
+		i++;
+	}
+
 	return clusters;
 
 }
@@ -103,12 +132,12 @@ int main ()
 	const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = CreateData(points);
 
 	const auto tree = std::make_unique<KdTree>();
-  
-    for (int i=0; i<points.size(); i++) 
-    	tree->insert(points[i],i); 
+
+    for (int i=0; i<points.size(); i++)
+    	tree->insert(points[i],i);
 
   	render2DTree(tree->root,viewer,window);
-  
+
   	std::cout << "Test Search" << std::endl;
   	std::vector<int> nearby = tree->search({-6,7},3.0);
   	for(int index : nearby)
@@ -137,10 +166,10 @@ int main ()
   	}
   	if(clusters.empty())
   		renderPointCloud(viewer,cloud,"data");
-	
+
   	while (!viewer->wasStopped ())
   	{
   	  viewer->spinOnce ();
   	}
-  	
+
 }
