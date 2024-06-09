@@ -28,12 +28,45 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     auto startTime = std::chrono::steady_clock::now();
 
     // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+    typename pcl::PointCloud<PointT>::Ptr filtered_cloud(new pcl::PointCloud<PointT>());
+
+    pcl::VoxelGrid<PointT> voxel_grid;
+    voxel_grid.setInputCloud(cloud);
+    voxel_grid.setLeafSize(filterRes, filterRes, filterRes);
+    voxel_grid.filter(*filtered_cloud);
+
+    typename pcl::PointCloud<PointT>::Ptr global_cloud(new pcl::PointCloud<PointT>());
+
+    pcl::CropBox<PointT> global_crop_box(true);
+    global_crop_box.setInputCloud(filtered_cloud);
+    global_crop_box.setMin(minPoint);
+    global_crop_box.setMax(maxPoint);
+    global_crop_box.filter(*global_cloud);
+
+    std::vector<int> indices;
+    pcl::CropBox<PointT> vehicle_crop_box(true);
+    vehicle_crop_box.setInputCloud(global_cloud);
+    vehicle_crop_box.setMin(Eigen::Vector4f(-1.5, -1.7, -1, 1));
+    vehicle_crop_box.setMax(Eigen::Vector4f(2.6, 1.7, -0.4, 1));
+    vehicle_crop_box.filter(indices);
+
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+    for(const auto& i : indices)
+    {
+        inliers->indices.push_back(i);
+    }
+
+    pcl::ExtractIndices<PointT> extract;
+    extract.setInputCloud(global_cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*global_cloud);
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    return cloud;
+    return global_cloud;
 
 }
 
@@ -45,7 +78,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     typename pcl::PointCloud<PointT>::Ptr inliers_cloud(new pcl::PointCloud<PointT>());
     typename pcl::PointCloud<PointT>::Ptr outliers_cloud(new pcl::PointCloud<PointT>());
 
-    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    pcl::ExtractIndices<PointT> extract;
     extract.setInputCloud (cloud);
     extract.setIndices (inliers);
     extract.setNegative (false);
@@ -68,7 +101,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     auto startTime = std::chrono::steady_clock::now();
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
     // TODO:: Fill in this function to find inliers for the cloud.
-    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    pcl::SACSegmentation<PointT> seg;
     pcl::ModelCoefficients coefficients;
 
     seg.setModelType (pcl::SACMODEL_PLANE);
