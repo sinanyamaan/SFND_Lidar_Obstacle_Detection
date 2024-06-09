@@ -62,9 +62,27 @@ struct KdTree
 	std::vector<int> search(const std::vector<float> &target, const float &distanceTol)
 	{
 		std::vector<int> ids;
+		search(target, root, 0, distanceTol, ids);
 		return ids;
 	}
 
+	void search(const std::vector<float> &target, const std::unique_ptr<Node> &node, const int &depth, const float &distanceTol, std::vector<int> &ids )
+	{
+		if(node)
+		{
+			if(node->point[0] >= target[0] - distanceTol && node->point[0] <= target[0] + distanceTol && node->point[1] >= target[1] - distanceTol && node->point[1] <= target[1] + distanceTol )
+			{
+				const auto distance = sqrt((node->point[0] - target[0]) * (node->point[0] - target[0]) + (node->point[1] - target[1]) * (node->point[1] - target[1]));
+				if (distance <= distanceTol)
+					ids.push_back(node->id);
+
+				if(target[depth % 2] - distanceTol < node->point[depth % 2])
+					search(target, node->left, depth + 1, distanceTol, ids);
+				if(target[depth % 2] + distanceTol > node->point[depth % 2])
+					search(target, node->right, depth + 1, distanceTol + 1, ids);
+			}
+		}
+	}
 
 };
 
