@@ -64,9 +64,32 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
         const auto g = static_cast<double>(rand()) / RAND_MAX;
         const auto b = static_cast<double>(rand()) / RAND_MAX;
         renderPointCloud(viewer, clusters[i], "cluster_" + std::to_string(i), Color(r, g, b));
+        Box box = processor.BoundingBox(clusters[i]);
+        renderBox(viewer, box, i);
     }
 }
 
+void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, const std::unique_ptr<ProcessPointClouds<pcl::PointXYZI>> &pointProcessorI, const pcl::PointCloud<pcl::PointXYZI>::Ptr& inputCloud)
+{
+    const auto &f_cloud = pointProcessorI->FilterCloud(inputCloud, 0.4, Eigen::Vector4f(-20, -6, -2, 1), Eigen::Vector4f(20, 7, 5, 1));
+    // renderPointCloud(viewer, f_cloud, "f_cloud");
+
+    const auto& [ground_cloud, non_ground_cloud] = pointProcessorI->SegmentPlane(f_cloud, 100, 0.2);
+    renderPointCloud( viewer, ground_cloud, "ground", Color(0.0f, 1.0f, 0.0f) );
+    // renderPointCloud( viewer, non_ground_cloud, "non_ground", Color(1.0f, 0.0f, 0.0f) );
+
+    const auto& clusters = pointProcessorI->Clustering(non_ground_cloud, 0.75, 2, 1000);
+    for(int i = 0; i < clusters.size(); i++)
+    {
+        const auto r = static_cast<double>(rand()) / RAND_MAX;
+        const auto g = static_cast<double>(rand()) / RAND_MAX;
+        const auto b = static_cast<double>(rand()) / RAND_MAX;
+        renderPointCloud(viewer, clusters[i], "cluster_" + std::to_string(i), Color(r, g, b));
+
+        const auto box = pointProcessorI->BoundingBox(clusters[i]);
+        renderBox(viewer, box, i);
+    }
+}
 
 //setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}
 void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& viewer)
@@ -99,10 +122,20 @@ int main (int argc, char** argv)
     pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
     CameraAngle setAngle = XY;
     initCamera(setAngle, viewer);
-    simpleHighway(viewer);
+    // simpleHighway(viewer);
 
+    auto pointProcessorI = std::make_unique<ProcessPointClouds<pcl::PointXYZI>>();
+    auto stream = pointProcessorI->streamPcd("../src/sensors/data/pcd/data_1");
+    auto streamIterator = stream.cbegin();
     while (!viewer->wasStopped ())
     {
+        viewer->removeAllPointClouds();
+        viewer->removeAllShapes();
+
+        cityBlock(viewer, pointProcessorI, pointProcessorI->loadPcd(streamIterator->string()));
+        ++streamIterator;
+        if(streamIterator == stream.cend()) streamIterator = stream.cbegin();
+
         viewer->spinOnce ();
     }
 }
